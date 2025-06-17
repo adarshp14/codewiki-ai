@@ -67,3 +67,11 @@ next-env.d.ts
 
 # ignore adding self-signed certs
 certs/
+
+# backup files
+*.bak
+*.backup
+*.orig
+
+# log files
+*.log
