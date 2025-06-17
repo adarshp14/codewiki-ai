@@ -1,0 +1,50 @@
+# Render Blueprint for CodeWiki AI
+# Deploy using: Connect GitHub repo and Render will auto-detect this file
+
+services:
+  # Next.js Frontend Service
+  - type: web
+    name: codewiki-ai-frontend
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        value: https://codewiki-ai-backend.onrender.com
+      - key: NEXT_PUBLIC_APP_ENV
+        value: production
+      - key: NEXT_PUBLIC_APP_NAME
+        value: CodeWiki AI
+    healthCheckPath: /
+    plan: free
+
+  # FastAPI Backend Service (Unified with Ollama)
+  - type: web
+    name: codewiki-ai-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile.render
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: NODE_ENV
+        value: production
+      - key: CORS_ORIGINS
+        value: https://codewiki-ai-frontend.onrender.com
+      - key: SECURITY_HEADERS_ENABLED
+        value: true
+      # AI Provider Keys (set these in Render dashboard)
+      - key: GOOGLE_API_KEY
+        sync: false  # Set manually in dashboard
+      - key: OPENAI_API_KEY
+        sync: false  # Optional
+      - key: OPENROUTER_API_KEY
+        sync: false  # Optional
+      # Ollama configuration
+      - key: OLLAMA_HOST
+        value: http://localhost:11434
+      - key: OLLAMA_ENABLED
+        value: true

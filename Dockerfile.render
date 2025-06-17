@@ -1,0 +1,91 @@
+# Unified Dockerfile for Render: FastAPI Backend + Ollama
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies including curl for Ollama
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    ca-certificates \
+    procps \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Ollama
+RUN curl -fsSL https://ollama.ai/install.sh | sh
+
+# Create virtual environment for Python
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy and install Python dependencies
+COPY api/requirements.txt ./api/
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r api/requirements.txt
+
+# Copy API source code
+COPY api/ ./api/
+
+# Create startup script that runs both Ollama and FastAPI
+RUN printf '#!/bin/bash\n\
+echo "Starting CodeWiki AI on Render..."\n\
+\n\
+# Start Ollama in background\n\
+echo "Starting Ollama server..."\n\
+ollama serve &\n\
+OLLAMA_PID=$!\n\
+\n\
+# Wait for Ollama to be ready\n\
+echo "Waiting for Ollama to start..."\n\
+sleep 10\n\
+\n\
+# Pull required models in background\n\
+echo "Pulling required models..."\n\
+(\n\
+    sleep 5\n\
+    ollama pull nomic-embed-text\n\
+    echo "nomic-embed-text model ready"\n\
+    ollama pull llama2:7b\n\
+    echo "llama2:7b model ready"\n\
+) &\n\
+\n\
+# Set Ollama environment for the API\n\
+export OLLAMA_HOST=http://localhost:11434\n\
+export OLLAMA_ENABLED=true\n\
+\n\
+# Start FastAPI server\n\
+echo "Starting FastAPI server on port $PORT..."\n\
+cd api && python -m uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1\n\
+\n\
+# If FastAPI exits, kill Ollama too\n\
+kill $OLLAMA_PID 2>/dev/null || true\n\
+' > /app/start-render.sh
+
+# Make startup script executable
+RUN chmod +x /app/start-render.sh
+
+# Create non-root user for security
+RUN useradd --create-home --shell /bin/bash app && \
+    chown -R app:app /app && \
+    mkdir -p /home/app/.ollama && \
+    chown -R app:app /home/app/.ollama
+
+USER app
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV NODE_ENV=production
+ENV PORT=8000
+ENV OLLAMA_HOST=http://localhost:11434
+ENV OLLAMA_ENABLED=true
+
+# Health check that verifies both services
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:$PORT/health && curl -f http://localhost:11434/api/version || exit 1
+
+# Expose port
+EXPOSE 8000
+
+# Start both services
+CMD ["/app/start-render.sh"]

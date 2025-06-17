@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # Ollama service for local AI models
+  ollama:
+    image: ollama/ollama:latest
+    container_name: codewiki-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_PORT=11434
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - codewiki-network
+
+  # CodeWiki AI Backend (for local development/testing)
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: codewiki-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - NODE_ENV=production
+      - OLLAMA_HOST=http://ollama:11434
+      - CORS_ORIGINS=https://codewiki-ai.vercel.app
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    networks:
+      - codewiki-network
+
+volumes:
+  ollama_data:
+
+networks:
+  codewiki-network:
+    driver: bridge

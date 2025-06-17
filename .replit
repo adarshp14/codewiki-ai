@@ -1,0 +1,31 @@
+# Replit Configuration for CodeWiki AI
+modules = ["python-3.11", "nodejs-20"]
+
+[deployment]
+deploymentTarget = "autoscale"
+publicDir = ".next"
+
+[[ports]]
+localPort = 3000
+externalPort = 80
+
+[[ports]]
+localPort = 8000
+externalPort = 8000
+
+[[ports]]
+localPort = 11434
+externalPort = 11434
+
+[env]
+PYTHONPATH = "."
+NODE_ENV = "production"
+PORT = "8000"
+NEXT_PUBLIC_API_URL = "https://$REPL_SLUG.$REPL_OWNER.repl.co:8000"
+OLLAMA_HOST = "http://localhost:11434"
+
+[nix]
+channel = "stable-23.11"
+
+[gitHubImport]
+requiredFiles = [".replit", "replit.nix", "start.sh"]
